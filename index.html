@@ -11,7 +11,7 @@
     <div>
       <p class="eyebrow">LIVE GOODS ORDER</p>
       <h1>Goods 代购登记</h1>
-      <p class="hint">选择想买的商品数量，填写名字和联系方式后提交。最终是否买到以现场库存为准。</p>
+      <p class="hint">选择想买的商品数量，填写名字和微信号后提交。最终是否买到以现场库存为准。</p>
     </div>
     <a class="admin-link" href="admin.html">管理</a>
   </header>
@@ -20,16 +20,33 @@
     <section class="customer-card">
       <label>
         下单人
-        <input id="customerName" placeholder="例：唐唐" autocomplete="name" />
+        <input id="customerName" placeholder="例：赤西仁" autocomplete="name" />
       </label>
       <label>
-        联系方式
-        <input id="contact" placeholder="例：LINE / 微信 / 电话" autocomplete="tel" />
+        微信号
+        <input id="contact" placeholder="例：akanishi_jin" autocomplete="off" />
       </label>
       <label>
         备注
-        <textarea id="memo" placeholder="例：没有黑色可以换白色；盲盒想要xx款"></textarea>
+        <textarea id="memo" placeholder="例：切货可以不购买"></textarea>
       </label>
+      <label class="checkbox-row">
+        <input id="randomBoxConsent" type="checkbox" />
+        <span>我确认盲盒商品为随机发货（购买盲盒商品必须勾选）</span>
+      </label>
+    </section>
+
+    <section class="order-status-card">
+      <div class="order-status-head">
+        <div>
+          <h2>我的订单信息</h2>
+          <p>输入下单人和微信号后，可以查看自己的订单状态。后台更新后这里会自动同步。</p>
+        </div>
+        <button id="loadMyOrdersBtn" type="button">查看/刷新</button>
+      </div>
+      <div id="myOrders" class="my-orders">
+        <p class="empty compact">还没有加载订单。</p>
+      </div>
     </section>
 
     <section class="toolbar">
