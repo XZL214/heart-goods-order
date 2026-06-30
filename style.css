@@ -474,3 +474,154 @@ button:disabled {
     justify-items: start;
   }
 }
+/* Buyer order status v4 */
+.checkbox-row {
+  display: flex;
+  grid-template-columns: none;
+  align-items: flex-start;
+  gap: 9px;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.checkbox-row input {
+  width: auto;
+  margin-top: 2px;
+  flex: 0 0 auto;
+}
+
+.order-status-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  padding: 16px;
+  margin-bottom: 14px;
+}
+
+.order-status-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.order-status-head h2 {
+  font-size: 18px;
+}
+
+.order-status-head p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.my-orders {
+  margin-top: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.empty.compact {
+  margin: 4px 0 0;
+  text-align: left;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.my-order-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px;
+  background: #fffdfc;
+}
+
+.my-order-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px dashed var(--line);
+  padding-bottom: 10px;
+}
+
+.my-order-head h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.my-order-head p,
+.my-order-memo {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.my-order-money {
+  display: grid;
+  gap: 2px;
+  justify-items: end;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.my-order-money strong {
+  color: var(--accent-dark);
+  font-size: 16px;
+}
+
+.my-order-items {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.my-order-item {
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  gap: 9px;
+  align-items: center;
+}
+
+.my-order-image-wrap {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #ffe9ef, #fff7f1);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.my-order-image-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.my-order-item strong {
+  font-size: 13px;
+}
+
+.my-order-item p {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+@media (max-width: 560px) {
+  .order-status-head {
+    display: grid;
+  }
+
+  .my-order-head {
+    display: grid;
+  }
+
+  .my-order-money {
+    justify-items: start;
+  }
+}
