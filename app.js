@@ -137,6 +137,7 @@ submitBtn.addEventListener("click", async () => {
       name: p.name,
       price: p.price,
       description: p.description,
+      image: p.image,
       quantity: Number(state.quantities[p.id] || 0),
       status: "未购买",
     }))
