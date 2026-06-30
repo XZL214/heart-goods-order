@@ -1,5 +1,6 @@
 const state = {
   quantities: {},
+  syncTimer: null,
 };
 
 const yen = new Intl.NumberFormat("ja-JP", {
@@ -14,22 +15,33 @@ const searchEl = document.getElementById("search");
 const submitBtn = document.getElementById("submitBtn");
 const clearBtn = document.getElementById("clearBtn");
 const toastEl = document.getElementById("toast");
+const loadMyOrdersBtn = document.getElementById("loadMyOrdersBtn");
+const myOrdersEl = document.getElementById("myOrders");
+const randomBoxConsentEl = document.getElementById("randomBoxConsent");
 
 const saved = JSON.parse(localStorage.getItem("heartGoodsDraft") || "{}");
 document.getElementById("customerName").value = saved.customerName || "";
 document.getElementById("contact").value = saved.contact || "";
 document.getElementById("memo").value = saved.memo || "";
+randomBoxConsentEl.checked = Boolean(saved.randomBoxConsent);
 state.quantities = saved.quantities || {};
 
 ["customerName", "contact", "memo"].forEach((id) => {
-  document.getElementById(id).addEventListener("input", saveDraft);
+  document.getElementById(id).addEventListener("input", () => {
+    saveDraft();
+    restartOrderSync(false);
+  });
 });
+
+randomBoxConsentEl.addEventListener("change", saveDraft);
+loadMyOrdersBtn.addEventListener("click", () => restartOrderSync(true));
 
 function saveDraft() {
   localStorage.setItem("heartGoodsDraft", JSON.stringify({
     customerName: document.getElementById("customerName").value.trim(),
     contact: document.getElementById("contact").value.trim(),
     memo: document.getElementById("memo").value.trim(),
+    randomBoxConsent: randomBoxConsentEl.checked,
     quantities: state.quantities,
   }));
 }
@@ -121,13 +133,14 @@ submitBtn.addEventListener("click", async () => {
   const customerName = document.getElementById("customerName").value.trim();
   const contact = document.getElementById("contact").value.trim();
   const memo = document.getElementById("memo").value.trim();
+  const randomBoxConsent = randomBoxConsentEl.checked;
 
   if (!customerName) {
     showToast("请先填写下单人。");
     return;
   }
   if (!contact) {
-    showToast("请先填写联系方式。");
+    showToast("请先填写微信号。");
     return;
   }
 
@@ -148,6 +161,11 @@ submitBtn.addEventListener("click", async () => {
     return;
   }
 
+  if (hasBlindBox(items) && !randomBoxConsent) {
+    showToast("购买盲盒商品前，请先勾选“盲盒商品随机发货”。");
+    return;
+  }
+
   const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
   submitBtn.disabled = true;
@@ -157,7 +175,7 @@ submitBtn.addEventListener("click", async () => {
     const res = await fetch("/api/orders", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ customerName, contact, memo, items, total }),
+      body: JSON.stringify({ customerName, contact, memo, items, total, randomBoxConsent }),
     });
 
     const data = await res.json();
@@ -166,9 +184,11 @@ submitBtn.addEventListener("click", async () => {
     localStorage.removeItem("heartGoodsDraft");
     state.quantities = {};
     document.getElementById("memo").value = "";
+    randomBoxConsentEl.checked = false;
     render();
 
     showToast(`提交成功！订单号：${data.order.id.slice(0, 8)}`);
+    restartOrderSync(true);
   } catch (error) {
     showToast(error.message || "提交失败，请稍后重试。");
   } finally {
@@ -176,6 +196,102 @@ submitBtn.addEventListener("click", async () => {
     submitBtn.textContent = "提交订单";
   }
 });
+
+function hasBlindBox(items) {
+  return items.some((item) => item.id === "HEART028" || String(item.name || "").includes("盲盒"));
+}
+
+async function restartOrderSync(showEmptyMessage) {
+  if (state.syncTimer) clearInterval(state.syncTimer);
+
+  const customerName = document.getElementById("customerName").value.trim();
+  const contact = document.getElementById("contact").value.trim();
+
+  if (!customerName || !contact) {
+    if (showEmptyMessage) {
+      myOrdersEl.innerHTML = `<p class="empty compact">请先填写下单人和微信号。</p>`;
+    }
+    return;
+  }
+
+  await loadMyOrders(showEmptyMessage);
+  state.syncTimer = setInterval(() => loadMyOrders(false), 8000);
+}
+
+async function loadMyOrders(showEmptyMessage = true) {
+  const customerName = document.getElementById("customerName").value.trim();
+  const contact = document.getElementById("contact").value.trim();
+
+  if (!customerName || !contact) {
+    if (showEmptyMessage) {
+      myOrdersEl.innerHTML = `<p class="empty compact">请先填写下单人和微信号。</p>`;
+    }
+    return;
+  }
+
+  try {
+    const params = new URLSearchParams({ customerName, contact });
+    const res = await fetch(`/api/orders?${params.toString()}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "无法读取订单。");
+
+    renderMyOrders(data.orders || []);
+  } catch (error) {
+    if (showEmptyMessage) showToast(error.message || "无法读取订单。");
+  }
+}
+
+function renderMyOrders(orders) {
+  if (!orders.length) {
+    myOrdersEl.innerHTML = `<p class="empty compact">暂时没有查询到订单。提交后这里会显示状态。</p>`;
+    return;
+  }
+
+  myOrdersEl.innerHTML = "";
+  for (const order of orders) {
+    const created = new Date(order.created_at).toLocaleString("zh-CN", { hour12: false });
+    const boughtTotal = (order.items || [])
+      .filter((item) => item.status === "已购买")
+      .reduce((sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0), 0);
+
+    const card = document.createElement("article");
+    card.className = "my-order-card";
+    const itemsHtml = (order.items || []).map((item) => `
+      <div class="my-order-item">
+        <div class="my-order-image-wrap">
+          ${item.image ? `<img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}" onerror="this.parentElement.classList.add('no-image'); this.remove();" />` : "图"}
+        </div>
+        <div>
+          <strong>${escapeHtml(item.name)}</strong>
+          <p>${yen.format(item.price)} × ${item.quantity}</p>
+        </div>
+        <span class="status status-${statusClass(item.status)}">${escapeHtml(item.status || "未购买")}</span>
+      </div>
+    `).join("");
+
+    card.innerHTML = `
+      <div class="my-order-head">
+        <div>
+          <h3>订单 ${order.id.slice(0, 8)}</h3>
+          <p>${created}</p>
+        </div>
+        <div class="my-order-money">
+          <strong>${yen.format(order.total)}</strong>
+          <span>已购买 ${yen.format(boughtTotal)}</span>
+        </div>
+      </div>
+      ${order.memo ? `<p class="my-order-memo">备注：${escapeHtml(order.memo)}</p>` : ""}
+      <div class="my-order-items">${itemsHtml}</div>
+    `;
+    myOrdersEl.appendChild(card);
+  }
+}
+
+function statusClass(status) {
+  if (status === "已购买") return "done";
+  if (status === "缺货") return "missing";
+  return "pending";
+}
 
 function escapeHtml(str) {
   return String(str)
@@ -187,3 +303,4 @@ function escapeHtml(str) {
 }
 
 render();
+restartOrderSync(false);
