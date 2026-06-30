@@ -29,12 +29,24 @@ function assertEnv() {
   }
 }
 
+function isAdmin(req) {
+  return Boolean(ADMIN_TOKEN && req.headers["x-admin-token"] === ADMIN_TOKEN);
+}
+
 function assertAdmin(req) {
-  if (!ADMIN_TOKEN || req.headers["x-admin-token"] !== ADMIN_TOKEN) {
+  if (!isAdmin(req)) {
     const err = new Error("管理员密码不正确。");
     err.statusCode = 401;
     throw err;
   }
+}
+
+function supabaseQuery(paramsObj) {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(paramsObj)) {
+    params.set(key, value);
+  }
+  return params.toString();
 }
 
 module.exports = async function handler(req, res) {
@@ -42,8 +54,32 @@ module.exports = async function handler(req, res) {
     assertEnv();
 
     if (req.method === "GET") {
-      assertAdmin(req);
-      const response = await fetch(`${SUPABASE_URL}/rest/v1/orders?select=*&order=created_at.desc`, {
+      if (isAdmin(req)) {
+        const query = supabaseQuery({ select: "*", order: "created_at.desc" });
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/orders?${query}`, {
+          headers: supabaseHeaders(),
+        });
+        const orders = await response.json();
+        if (!response.ok) throw new Error(JSON.stringify(orders));
+        return json(res, 200, { orders });
+      }
+
+      const url = new URL(req.url, `https://${req.headers.host}`);
+      const customerName = String(url.searchParams.get("customerName") || "").trim();
+      const contact = String(url.searchParams.get("contact") || "").trim();
+
+      if (!customerName || !contact) {
+        return json(res, 400, { error: "查询订单需要填写下单人和微信号。" });
+      }
+
+      const query = supabaseQuery({
+        select: "*",
+        customer_name: `eq.${customerName}`,
+        contact: `eq.${contact}`,
+        order: "created_at.desc",
+      });
+
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/orders?${query}`, {
         headers: supabaseHeaders(),
       });
       const orders = await response.json();
@@ -58,9 +94,10 @@ module.exports = async function handler(req, res) {
       const memo = String(body.memo || "").trim();
       const items = Array.isArray(body.items) ? body.items : [];
       const total = Number(body.total || 0);
+      const randomBoxConsent = Boolean(body.randomBoxConsent);
 
       if (!customerName) return json(res, 400, { error: "请填写下单人。" });
-      if (!contact) return json(res, 400, { error: "请填写联系方式。" });
+      if (!contact) return json(res, 400, { error: "请填写微信号。" });
       if (!items.length) return json(res, 400, { error: "订单不能为空。" });
       if (!Number.isFinite(total) || total <= 0) return json(res, 400, { error: "订单金额异常。" });
 
@@ -74,13 +111,22 @@ module.exports = async function handler(req, res) {
         status: "未购买",
       })).filter((item) => item.id && item.name && item.price > 0 && item.quantity > 0);
 
+      const hasBlindBox = cleanedItems.some((item) => item.id === "HEART028" || String(item.name || "").includes("盲盒"));
+      if (hasBlindBox && !randomBoxConsent) {
+        return json(res, 400, { error: "购买盲盒商品前，请先勾选“盲盒商品随机发货”。" });
+      }
+
+      const finalMemo = hasBlindBox
+        ? [memo, "已确认：盲盒商品随机发货"].filter(Boolean).join("\n")
+        : memo;
+
       const response = await fetch(`${SUPABASE_URL}/rest/v1/orders`, {
         method: "POST",
         headers: supabaseHeaders({ "Prefer": "return=representation" }),
         body: JSON.stringify({
           customer_name: customerName,
           contact,
-          memo,
+          memo: finalMemo,
           items: cleanedItems,
           total,
         }),
