@@ -69,6 +69,7 @@ module.exports = async function handler(req, res) {
         name: String(item.name || ""),
         price: Number(item.price || 0),
         description: String(item.description || ""),
+        image: String(item.image || ""),
         quantity: Math.max(0, Number(item.quantity || 0)),
         status: "未购买",
       })).filter((item) => item.id && item.name && item.price > 0 && item.quantity > 0);
@@ -106,6 +107,24 @@ module.exports = async function handler(req, res) {
       const data = await response.json();
       if (!response.ok) throw new Error(JSON.stringify(data));
       return json(res, 200, { order: data[0] });
+    }
+
+    if (req.method === "DELETE") {
+      assertAdmin(req);
+      const url = new URL(req.url, `https://${req.headers.host}`);
+      const id = String(url.searchParams.get("id") || "");
+      if (!id) return json(res, 400, { error: "缺少订单 ID。" });
+
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${encodeURIComponent(id)}`, {
+        method: "DELETE",
+        headers: supabaseHeaders(),
+      });
+
+      if (!response.ok) {
+        const data = await response.text();
+        throw new Error(data || "删除失败");
+      }
+      return json(res, 200, { ok: true });
     }
 
     return json(res, 405, { error: "Method not allowed" });
