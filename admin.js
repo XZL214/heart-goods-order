@@ -53,6 +53,27 @@ async function loadOrders() {
   }
 }
 
+function groupOrders(list) {
+  const map = new Map();
+  for (const order of list) {
+    const key = `${order.customer_name || "未填写"}__${order.contact || ""}`;
+    if (!map.has(key)) {
+      map.set(key, {
+        customer_name: order.customer_name || "未填写",
+        contact: order.contact || "",
+        orders: [],
+        total: 0,
+        itemCount: 0,
+      });
+    }
+    const group = map.get(key);
+    group.orders.push(order);
+    group.total += Number(order.total || 0);
+    group.itemCount += (order.items || []).reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+  }
+  return Array.from(map.values());
+}
+
 function renderOrders() {
   const keyword = searchInput.value.trim().toLowerCase();
   const filtered = orders.filter((order) => {
@@ -65,18 +86,54 @@ function renderOrders() {
     return;
   }
 
+  const groups = groupOrders(filtered);
   ordersEl.innerHTML = "";
-  for (const order of filtered) {
-    const card = document.createElement("article");
-    card.className = "order-card";
 
-    const created = new Date(order.created_at).toLocaleString("zh-CN", { hour12: false });
-    const itemsHtml = order.items.map((item, index) => `
-      <div class="admin-item">
+  for (const group of groups) {
+    const details = document.createElement("details");
+    details.className = "person-group";
+    details.open = true;
+
+    const orderWord = group.orders.length > 1 ? `${group.orders.length} 张订单` : "1 张订单";
+    details.innerHTML = `
+      <summary class="person-summary">
         <div>
-          <strong>${escapeHtml(item.name)}</strong>
-          <p>${escapeHtml(item.description || "")}</p>
-          <p>${yen.format(item.price)} × ${item.quantity} = ${yen.format(item.price * item.quantity)}</p>
+          <h2>${escapeHtml(group.customer_name)}</h2>
+          <p>${escapeHtml(group.contact || "无联系方式")} · ${orderWord} · ${group.itemCount} 件商品</p>
+        </div>
+        <strong>${yen.format(group.total)}</strong>
+      </summary>
+      <div class="person-orders"></div>
+    `;
+
+    const container = details.querySelector(".person-orders");
+    for (const order of group.orders) {
+      container.appendChild(renderOrderCard(order));
+    }
+
+    ordersEl.appendChild(details);
+  }
+}
+
+function renderOrderCard(order) {
+  const card = document.createElement("article");
+  card.className = "order-card";
+
+  const created = new Date(order.created_at).toLocaleString("zh-CN", { hour12: false });
+  const itemsHtml = (order.items || []).map((item, index) => {
+    const imageHtml = item.image
+      ? `<img class="admin-product-image" src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}" onerror="this.parentElement.classList.add('no-image'); this.remove();" />`
+      : `<div class="admin-product-image-placeholder">图</div>`;
+
+    return `
+      <div class="admin-item">
+        <div class="admin-item-main">
+          <div class="admin-product-image-wrap">${imageHtml}</div>
+          <div>
+            <strong>${escapeHtml(item.name)}</strong>
+            <p>${escapeHtml(item.description || "")}</p>
+            <p>${yen.format(item.price)} × ${item.quantity} = ${yen.format(item.price * item.quantity)}</p>
+          </div>
         </div>
         <div class="status-actions">
           <span class="status status-${statusClass(item.status)}">${escapeHtml(item.status || "未购买")}</span>
@@ -85,25 +142,38 @@ function renderOrders() {
           <button type="button" data-order="${order.id}" data-index="${index}" data-status="未购买">恢复</button>
         </div>
       </div>
-    `).join("");
-
-    card.innerHTML = `
-      <div class="order-head">
-        <div>
-          <h2>${escapeHtml(order.customer_name)}</h2>
-          <p>联系方式：${escapeHtml(order.contact)}</p>
-          <p>提交时间：${created}</p>
-          ${order.memo ? `<p>备注：${escapeHtml(order.memo)}</p>` : ""}
-        </div>
-        <strong>${yen.format(order.total)}</strong>
-      </div>
-      <div class="admin-items">${itemsHtml}</div>
     `;
-    ordersEl.appendChild(card);
-  }
+  }).join("");
+
+  card.innerHTML = `
+    <div class="order-head">
+      <div>
+        <h3>订单 ${order.id.slice(0, 8)}</h3>
+        <p>提交时间：${created}</p>
+        ${order.memo ? `<p>备注：${escapeHtml(order.memo)}</p>` : ""}
+      </div>
+      <div class="order-head-actions">
+        <strong>${yen.format(order.total)}</strong>
+        <button type="button" class="danger-btn" data-delete-order="${order.id}">删除订单</button>
+      </div>
+    </div>
+    <div class="admin-items">${itemsHtml}</div>
+  `;
+  return card;
 }
 
 ordersEl.addEventListener("click", async (event) => {
+  const deleteBtn = event.target.closest("button[data-delete-order]");
+  if (deleteBtn) {
+    const orderId = deleteBtn.dataset.deleteOrder;
+    const order = orders.find((o) => o.id === orderId);
+    if (!order) return;
+    const ok = confirm(`确定删除 ${order.customer_name} 的这张订单吗？删除后无法恢复。`);
+    if (!ok) return;
+    await deleteOrder(orderId);
+    return;
+  }
+
   const btn = event.target.closest("button[data-order]");
   if (!btn) return;
 
@@ -132,6 +202,24 @@ ordersEl.addEventListener("click", async (event) => {
     await loadOrders();
   }
 });
+
+async function deleteOrder(orderId) {
+  try {
+    const res = await fetch(`/api/orders?id=${encodeURIComponent(orderId)}`, {
+      method: "DELETE",
+      headers: { "x-admin-token": adminToken },
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "删除失败");
+
+    orders = orders.filter((order) => order.id !== orderId);
+    renderOrders();
+    showToast("订单已删除。");
+  } catch (error) {
+    showToast(error.message || "删除失败");
+    await loadOrders();
+  }
+}
 
 function statusClass(status) {
   if (status === "已购买") return "done";
