@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Goods 管理后台</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="hero">
+    <div>
+      <p class="eyebrow">ADMIN</p>
+      <h1>管理后台</h1>
+      <p class="hint">输入管理员密码后查看所有订单，现场买到后直接标记状态。</p>
+    </div>
+    <a class="admin-link" href="index.html">返回下单页</a>
+  </header>
+
+  <main>
+    <section id="loginBox" class="customer-card">
+      <label>
+        管理员密码
+        <input id="adminToken" type="password" placeholder="输入 ADMIN_TOKEN" />
+      </label>
+      <button id="loginBtn" type="button" class="primary-wide">进入后台</button>
+    </section>
+
+    <section id="adminPanel" hidden>
+      <div class="toolbar">
+        <input id="adminSearch" placeholder="搜索下单人 / 商品 / 联系方式" />
+        <button id="refreshBtn" type="button">刷新</button>
+      </div>
+      <div id="orders"></div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="admin.js"></script>
+</body>
+</html>

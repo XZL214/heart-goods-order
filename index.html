@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LIVE GOODS 代购登记</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="hero">
+    <div>
+      <p class="eyebrow">LIVE GOODS ORDER</p>
+      <h1>Goods 代购登记</h1>
+      <p class="hint">选择想买的商品数量，填写名字和联系方式后提交。最终是否买到以现场库存为准。</p>
+    </div>
+    <a class="admin-link" href="admin.html">管理</a>
+  </header>
+
+  <main>
+    <section class="customer-card">
+      <label>
+        下单人
+        <input id="customerName" placeholder="例：唐唐" autocomplete="name" />
+      </label>
+      <label>
+        联系方式
+        <input id="contact" placeholder="例：LINE / 微信 / 电话" autocomplete="tel" />
+      </label>
+      <label>
+        备注
+        <textarea id="memo" placeholder="例：没有黑色可以换白色；盲盒想要xx款"></textarea>
+      </label>
+    </section>
+
+    <section class="toolbar">
+      <input id="search" placeholder="搜索商品 / 颜色 / 尺码" />
+      <button id="clearBtn" type="button">清空数量</button>
+    </section>
+
+    <section id="products" class="product-grid"></section>
+  </main>
+
+  <footer class="checkout-bar">
+    <div>
+      <span class="small">合计</span>
+      <strong id="total">¥0</strong>
+    </div>
+    <button id="submitBtn" type="button">提交订单</button>
+  </footer>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="products.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
